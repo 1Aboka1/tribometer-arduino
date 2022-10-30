@@ -58,7 +58,6 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         while self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'Readings:':
             pass
 
-
     def update_plot(self):
         try:
             self.plotdata = np.append(self.plotdata, self.q.get_nowait(), axis=0)
