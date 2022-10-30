@@ -22,7 +22,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtMultimedia import QAudioDeviceInfo, QAudio, QCameraInfo
-
+import qdarktheme
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -36,7 +36,6 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.arduino = serial.Serial(port='/dev/ttyACM1', baudrate=38400, timeout=.1)
         QtWidgets.QMainWindow.__init__(self)
         self.ui = uic.loadUi('design.ui', self)
-        self.resize(888, 600)
         self.threadpool = QtCore.QThreadPool()
         self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
         self.ui.verticalLayout.addWidget(self.canvas)
@@ -61,7 +60,10 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
 
     def update_plot(self):
-        self.plotdata = np.append(self.plotdata, self.q.get(), axis=0)
+        try:
+            self.plotdata = np.append(self.plotdata, self.q.get_nowait(), axis=0)
+        except:
+            pass
         data = self.plotdata
         plot_refs = self.canvas.axes.plot(data, color=(0,0,0))
         self.reference_plot = plot_refs[0]				
@@ -96,5 +98,6 @@ class Worker(QtCore.QRunnable):
 
 app = QtWidgets.QApplication(sys.argv)
 win = MainGuiWindow()
+app.setStyleSheet(qdarktheme.load_stylesheet())
 win.show()
 sys.exit(app.exec_())
