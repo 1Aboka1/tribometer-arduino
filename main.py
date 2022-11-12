@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import queue
 import numpy as np
-import serial 
+import serial.tools.list_ports
+import serial
 
 matplotlib.rcParams.update(
     {
@@ -33,7 +34,15 @@ class MplCanvas(FigureCanvas):
 
 class MainGuiWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.arduino = serial.Serial(port='/dev/ttyACM1', baudrate=38400, timeout=.1)
+        if 'linux' in sys.platform:
+            target_port = ''
+            for port in serial.tools.list_ports.comports():
+                if 'ttyACM' in port.description:
+                    target_port = port
+                    break
+            self.arduino = serial.Serial(port='/dev/{}'.format(target_port.description), baudrate=38400, timeout=.1)
+        elif 'win' in sys.platform:
+            self.arduino = serial.Serial(port='/dev/ttyACM1', baudrate=38400, timeout=.1)
         QtWidgets.QMainWindow.__init__(self)
         self.ui = uic.loadUi('design.ui', self)
         self.threadpool = QtCore.QThreadPool()
@@ -41,18 +50,29 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.verticalLayout.addWidget(self.canvas)
         self.reference_plot = None
 
-        self.reset_arduino()
+        while self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'Readings:':
+            pass
 
         self.q = queue.Queue(maxsize=20)
         self.plotdata = np.array([])
+        self.plotTimeData = np.array([])
         self.interval = 100
         self.phase = 0
 
         self.start_worker()
+        self.main_timer = QtCore.QTimer()
+        self.timer_duration = 12
+        self.main_timer.setInterval(self.timer_duration * 1000)
+        self.main_timer.timeout.connect(self.timeout)
+        self.main_timer.start()
+
         self.timer = QtCore.QTimer()
         self.timer.setInterval(self.interval) #msec
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
+
+    def timeout(self):
+        self.timer.stop()
 
     def reset_arduino(self):
         while self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'Readings:':
@@ -61,10 +81,10 @@ class MainGuiWindow(QtWidgets.QMainWindow):
     def update_plot(self):
         try:
             self.plotdata = np.append(self.plotdata, self.q.get_nowait(), axis=0)
+            self.plotTimeData = np.append(self.plotTimeData, [self.timer_duration - self.main_timer.remainingTime() / 1000], axis=0)
         except:
             pass
-        data = self.plotdata
-        plot_refs = self.canvas.axes.plot(data, color=(0,0,0))
+        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0))
         self.reference_plot = plot_refs[0]				
         self.canvas.draw()
 
