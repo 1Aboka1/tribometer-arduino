@@ -47,14 +47,14 @@ void setup() {
 
 void loop() {
   Serial.print("first:");
-  delay(50);
+  delay(30);
   Serial.println(scale.get_units(), 1);
-  delay(50);
+  /* delay(30);
   Serial.print("average:");
-  delay(50);
-  Serial.print(scale.get_units(10), 1);
+  delay(30);
+  Serial.print(scale.get_units(10), 1); */
 
   scale.power_down();			        // put the ADC in sleep mode
-  delay(300);
+  delay(200);
   scale.power_up();
 }
