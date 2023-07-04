@@ -30,6 +30,8 @@ class MplCanvas(FigureCanvas):
         fig = Figure(figsize=(width, height), dpi=dpi, layout='tight')
         self.axes = fig.add_subplot(111, ylabel='Вес на датчик, г', xlabel='Время, с')
         self.axes.grid()
+        self.axes.set_ylim(ymin=0, ymax=500)
+
         super(MplCanvas, self).__init__(fig)
 
 class MainGuiWindow(QtWidgets.QMainWindow):
@@ -68,7 +70,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.phase = 0
 
         # Connecting Start Button
-        self.pushButton.clicked.connect(self.start_timer)
+        self.startButton.clicked.connect(self.start_timer)
         self.timerInput.setPlaceholderText("В минутах")             
 
     # Timers
@@ -80,9 +82,12 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         except:
             return
 
+        self.startButton.setText("Остановить испытание")
+        self.startButton.clicked.connect(self.pause_timers)
         self.timerInput.setReadOnly(True)
 
         self.timer_duration = input_timer * 60
+        self.canvas.axes.set_xlim(xmin=0, xmax=self.timer_duration + 1)
 
         self.start_worker()
 
@@ -96,10 +101,25 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.main_timer.setSingleShot(True)
         self.main_timer.timeout.connect(self.timeout)
         self.main_timer.start()
+    
+    def proceed_timers(self):
+        self.main_timer.start()
+        print(self.main_timer.remainingTime)
+        self.timer.start()
+        self.startButton.setText("Остановить испытание")
+        self.startButton.clicked.connect(self.pause_timers)
+    
+    def pause_timers(self):
+        self.startButton.setText("Продолжить испытание")
+        self.remaining_time = self.main_timer.remainingTime()
+        print(self.remaining_time)
+        self.timer.stop()
+        self.startButton.clicked.connect(self.proceed_timers)
 
     def timeout(self):
         self.timerInput.setReadOnly(False)
         self.timer.stop()
+        self.startButton.setText("Начать испытание")
 
     def reset_arduino(self):
         while self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'Readings:':
@@ -123,7 +143,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
             self.plotTimeData = np.append(self.plotTimeData, [self.timer_duration - self.main_timer.remainingTime() / 1000], axis=0)
         except:
             pass
-        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0))
+        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0), linewidth=0.5)
         self.reference_plot = plot_refs[0]				
         self.canvas.draw()
 
