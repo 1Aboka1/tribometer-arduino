@@ -187,9 +187,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
     def save_plot(self):
         self.canvas.print_jpeg("graphs/image.jpeg")
 
-    # Graph manipulation
-    def zoom_in(self):
-        pass
+
 
 class Worker(QtCore.QRunnable):
 	def __init__(self, function, *args, **kwargs):
@@ -201,6 +199,29 @@ class Worker(QtCore.QRunnable):
 	@pyqtSlot()
 	def run(self):
 		self.function(*self.args, **self.kwargs)
+
+class GraphManipulation():
+    def __init__(self, intervals, max_value):
+        self.intervals = intervals
+        self.max = max_value
+        self.coef = 1
+
+    def interval_check(self):
+        if self.intervals == [0, 0]:
+            return
+        temp = (len(str(self.max)) - 1) * 5
+
+    def zoom_in(self):
+        self.interval_check()
+
+    def zoom_out(self):
+        self.interval_check()
+
+    def move_left(self):
+        self.interval_check()
+
+    def move_right(self):
+        self.interval_check()
 
 # Main
 if __name__ == "__main__":
