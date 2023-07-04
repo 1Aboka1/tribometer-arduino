@@ -51,27 +51,37 @@ class MainGuiWindow(QtWidgets.QMainWindow):
                     target_port = port.name
             self.arduino = serial.Serial(port=target_port, baudrate=38400, timeout=.1)
 
-        # Setting Up Qt
+        # Setting up Qt
         QtWidgets.QMainWindow.__init__(self)
         self.ui = uic.loadUi('design.ui', self)
         self.threadpool = QtCore.QThreadPool()
-        self.canvas = MplCanvas(self, width=12, height=10, dpi=100)
+
+        # Setting up graph
+        self.canvas = MplCanvas(self, width=12, height=8, dpi=100)
         self.ui.verticalLayout.addWidget(self.canvas)
         self.reference_plot = None
 
         # Resetting Arduino
         self.reset_arduino()
 
-        # Queue
+        # Data
         self.q = queue.Queue(maxsize=40)
         self.plotdata = np.array([])
         self.plotTimeData = np.array([])
+
+        # Setup
         self.interval = 100
         self.phase = 0
+        self.intervals = [0, 0] # For zoom in and out
 
-        # Connecting Start Button
+        # Connecting Buttons
         self.startButton.clicked.connect(self.start_timer)
-        self.timerInput.setPlaceholderText("В минутах")             
+        self.saveButton.clicked.connect(self.save_plot)
+        self.timerInput.setPlaceholderText("В минутах")
+        self.zoomIn.clicked.connect(self.zoom_in)
+        self.zoomOut.clicked.connect(self.zoom_out)
+        self.moveLeft.clicked.connect(self.move_left)
+        self.moveRight.clicked.connect(self.move_right)
 
     # Timers
     def start_timer(self):
@@ -81,21 +91,27 @@ class MainGuiWindow(QtWidgets.QMainWindow):
                 return
         except:
             return
-
+    
         self.timerInput.setReadOnly(True)
         self.startButton.setEnabled(False)
         self.saveButton.setEnabled(False)
 
         self.timer_duration = input_timer * 60
+
         self.canvas.axes.set_xlim(xmin=0, xmax=self.timer_duration + 1)
+        ticker_obj = ticker.MaxNLocator('auto', integer=True)
+        self.canvas.axes.set_xticks(ticker_obj.tick_values(0, self.timer_duration))
+        self.intervals = [0, self.timer_duration + 1]
 
         self.start_worker()
 
+        # Timer for updating the plot
         self.timer = QtCore.QTimer()
         self.timer.setInterval(self.interval) #msec
         self.timer.timeout.connect(self.update_state)
         self.timer.start()
 
+        # Timer from the user input
         self.main_timer = QtCore.QTimer()
         self.main_timer.setInterval(int(self.timer_duration * 1000))
         self.main_timer.setSingleShot(True)
@@ -103,6 +119,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.main_timer.start()
 
     def timeout(self):
+        self.canvas.axes.set_xlim(10, 20)
         self.timerInput.setReadOnly(True)
         self.startButton.setEnabled(True)
         self.timer.stop()
@@ -165,6 +182,14 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
     def start_stream(self):
         self.read_serial()
+
+    # Saving
+    def save_plot(self):
+        self.canvas.print_jpeg("graphs/image.jpeg")
+
+    # Graph manipulation
+    def zoom_in(self):
+        pass
 
 class Worker(QtCore.QRunnable):
 	def __init__(self, function, *args, **kwargs):
