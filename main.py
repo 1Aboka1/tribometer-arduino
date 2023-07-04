@@ -55,7 +55,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self)
         self.ui = uic.loadUi('design.ui', self)
         self.threadpool = QtCore.QThreadPool()
-        self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        self.canvas = MplCanvas(self, width=12, height=10, dpi=100)
         self.ui.verticalLayout.addWidget(self.canvas)
         self.reference_plot = None
 
@@ -76,15 +76,15 @@ class MainGuiWindow(QtWidgets.QMainWindow):
     # Timers
     def start_timer(self):
         try:
-            input_timer = float(self.timerInput.toPlainText())
-            if input_timer <= 0:
+            input_timer = float(self.timerInput.text())
+            if input_timer <= 0.1:
                 return
         except:
             return
 
-        self.startButton.setText("Остановить испытание")
-        self.startButton.clicked.connect(self.pause_timers)
         self.timerInput.setReadOnly(True)
+        self.startButton.setEnabled(False)
+        self.saveButton.setEnabled(False)
 
         self.timer_duration = input_timer * 60
         self.canvas.axes.set_xlim(xmin=0, xmax=self.timer_duration + 1)
@@ -101,49 +101,48 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.main_timer.setSingleShot(True)
         self.main_timer.timeout.connect(self.timeout)
         self.main_timer.start()
-    
-    def proceed_timers(self):
-        self.main_timer.start()
-        print(self.main_timer.remainingTime)
-        self.timer.start()
-        self.startButton.setText("Остановить испытание")
-        self.startButton.clicked.connect(self.pause_timers)
-    
-    def pause_timers(self):
-        self.startButton.setText("Продолжить испытание")
-        self.remaining_time = self.main_timer.remainingTime()
-        print(self.remaining_time)
-        self.timer.stop()
-        self.startButton.clicked.connect(self.proceed_timers)
 
     def timeout(self):
-        self.timerInput.setReadOnly(False)
+        self.timerInput.setReadOnly(True)
+        self.startButton.setEnabled(True)
         self.timer.stop()
-        self.startButton.setText("Начать испытание")
+        self.timerInput.setText('0')
+        self.saveButton.setEnabled(True)
 
     def reset_arduino(self):
         while self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'Readings:':
             pass
 
-    # Updates timerInput and plot
-    def update_state(self):
+    # Updates timerInput
+    def update_timer_input(self):
         unprocessed_remaining_time = self.main_timer.remainingTime() / 1000
         remaining_time = 0
 
         if unprocessed_remaining_time > 100:
-            remaining_time = str(int(round(unprocessed_remaining_time / 60))) + " м"
+            remaining_time = str(int(round((unprocessed_remaining_time) / 60))) + " м"
         else:
             remaining_time = str(round(unprocessed_remaining_time, 1)) + " с"
 
-        self.timerInput.setPlainText(remaining_time)
-        self.timerInput.setAlignment(QtCore.Qt.AlignCenter)              
+        self.timerInput.setText(remaining_time)
+        self.timerInput.setAlignment(QtCore.Qt.AlignCenter)  
 
+    # Updates timerInput and plot
+    def update_state(self):
         try:
+            print(self.delay_time)
+            time_stamp = self.timer_duration - self.main_timer.remainingTime() / 1000 - self.delay_time / 1000
+            self.update_timer_input()
+        except AttributeError as err:
+            time_stamp = self.timer_duration - self.main_timer.remainingTime() / 1000
+            self.update_timer_input()
+
+        try:    
             self.plotdata = np.append(self.plotdata, self.q.get_nowait(), axis=0)
-            self.plotTimeData = np.append(self.plotTimeData, [self.timer_duration - self.main_timer.remainingTime() / 1000], axis=0)
+            self.plotTimeData = np.append(self.plotTimeData, [time_stamp], axis=0)
         except:
             pass
-        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0), linewidth=0.5)
+
+        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0), linewidth=0.8)
         self.reference_plot = plot_refs[0]				
         self.canvas.draw()
 
