@@ -9,7 +9,7 @@ import queue
 import numpy as np
 import serial.tools.list_ports
 import serial
-import traceback
+import pandas as pd
 
 matplotlib.rcParams.update(
     {
@@ -83,19 +83,18 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.tableWidget.setHorizontalHeaderLabels(['Текущее значение', 'Максимум'])
         self.ui.tableWidget.setVerticalHeaderLabels(['Тензодатчик', 'Unknown'])
 
-        self.ui.tableWidget.setReadOnly(True)
-
         for i in range(row_count):
             for j in range(column_count):
                 self.ui.tableWidget.setItem(i, j, QTableWidgetItem('---'))
 
         # Data
         self.q = queue.Queue(maxsize=40)
-        self.plotdata = np.array([])
+        self.plotData = np.array([])
         self.plotTimeData = np.array([])
+        self.timer_duration = 0
 
         # Setup
-        self.interval = 100
+        self.interval = 90
         self.phase = 0
         self.intervals = [0, 0] # For zoom in and out
         self.tenzo_max = 0
@@ -103,10 +102,14 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
         # Connecting Buttons
         self.startButton.clicked.connect(self.start_timer)
-        self.saveButton.clicked.connect(self.save_plot)
+        # self.saveButton.clicked.connect(self.open_save_menu)
         self.calibrate_button.clicked.connect(self.reset_arduino)
         self.ui.no_timer_button.clicked.connect(self.turn_on_without_timer)
         self.ui.with_timer_button.clicked.connect(self.turn_on_with_timer)
+        self.ui.calculate_button.clicked.connect(self.calculate_vars)
+
+        self.ui.action_save_image.triggered.connect(self.save_plot)
+        self.ui.action_save_excel.triggered.connect(self.save_excel)
 
         self.timerInput.setPlaceholderText("")
         # self.zoomIn.clicked.connect(self.zoom_in)
@@ -130,7 +133,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
     def disabling_widgets_at_start(self):
         self.timerInput.setReadOnly(True)
         self.startButton.setText("Остановить испытание")
-        self.saveButton.setEnabled(False)
+        # self.saveButton.setEnabled(False)
         self.ui.radioButton.setEnabled(False)
         self.ui.radioButton_2.setEnabled(False)
         self.ui.with_timer_button.setEnabled(False)
@@ -171,7 +174,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
             pass
 
         # Initialize graph with zeros
-        self.plotdata = np.append(self.plotdata, [0], axis=0)
+        self.plotData = np.append(self.plotData, [0], axis=0)
         self.plotTimeData = np.append(self.plotTimeData, [0], axis=0)
 
         self.start_worker()
@@ -201,7 +204,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.timer.stop()
         self.timerInput.setText('0')
         self.timerInput.setEnabled(True)
-        self.saveButton.setEnabled(True)
+        # self.saveButton.setEnabled(True)
         self.ui.radioButton.setEnabled(True)
         self.ui.radioButton_2.setEnabled(True)
         self.ui.with_timer_button.setEnabled(True)
@@ -218,7 +221,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.intervals = [0, self.timer_duration + 1]
     
     def reset_graph(self):
-        self.plotdata = np.array([])
+        self.plotData = np.array([])
         self.plotTimeData = np.array([])
         self.canvas.axes.clear()
 
@@ -271,7 +274,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
         try:    
             queue_result = self.q.get_nowait()
-            self.plotdata = np.append(self.plotdata, queue_result, axis=0)
+            self.plotData = np.append(self.plotData, queue_result, axis=0)
             self.plotTimeData = np.append(self.plotTimeData, [time_stamp], axis=0)
             # print(time_stamp)
             # print(queue_result)
@@ -284,11 +287,11 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         except Exception:
             pass
             
-        # print(self.plotdata)
+        # print(self.plotData)
         # print(self.plotTimeData)
         # print('-----\n')
 
-        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotdata, color=(0,0,0), linewidth=0.8)
+        plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotData, color=(0,0,0), linewidth=0.8)
         self.reference_plot = plot_refs[0]				
         self.canvas.draw()
 
@@ -319,7 +322,38 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
     # Saving
     def save_plot(self):
-        self.canvas.print_jpeg("graphs/image.jpeg")
+        try:
+            option = QtWidgets.QFileDialog.Options()
+            file = QtWidgets.QFileDialog.getSaveFileName(self, "Сохранить как", "Изображение.jpeg", "Изображения (*.png *.jpg *.bmp *.jpeg)", options=option)
+            self.canvas.print_jpeg(file[0])
+        except:
+            return
+
+    def save_excel(self):
+        try:
+            option = QtWidgets.QFileDialog.Options()
+            file = QtWidgets.QFileDialog.getSaveFileName(self, "Сохранить как", "Результат.xlsx", "Excel Файлы (*.xlsx)", options=option)
+
+            full_graph = np.stack((self.plotTimeData, self.plotData))
+            df = pd.DataFrame(full_graph)
+
+            df.to_excel(file[0], index=False)
+        except:
+            return
+        
+    def calculate_vars(self):
+        r0 = float(self.ui.r0.text())
+        rk = float(self.ui.rk.text())
+        f0 = float(self.ui.f0.text())
+        p1 = float(self.ui.p1.text())
+
+        m1 = round(r0 * f0, 3)
+        fk = round(m1 / rk, 3)
+        ktr = round((fk/p1)/rk, 3)
+
+        self.ui.fk.setText(str(fk))
+        self.ui.m1.setText(str(m1))
+        self.ui.ktr.setText(str(ktr))
 
 class StopDialog(QtWidgets.QDialog):
     def __init__(self, accept, reject):
@@ -334,7 +368,7 @@ class StopDialog(QtWidgets.QDialog):
         self.buttonBox.rejected.connect(reject)
 
         self.layout = QtWidgets.QVBoxLayout()
-        message = QtWidgets.QLabel("Вы преждевременно остановить испытание. Продолжить?")
+        message = QtWidgets.QLabel("Вы преждевременно остановите испытание. Продолжить?")
         self.layout.addWidget(message)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
