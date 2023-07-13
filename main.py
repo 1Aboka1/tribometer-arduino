@@ -26,34 +26,17 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QTableWidgetItem
 import qdarktheme
 
-ylim = 1000
-
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi, layout='tight')
         self.axes = fig.add_subplot(111, ylabel='Вес на датчик, г', xlabel='Время, с')
         self.axes.grid()
-        self.axes.set_ylim(ymin=0, ymax=ylim)
+        self.axes.set_ylim(ymin=0, ymax=500)
 
         super(MplCanvas, self).__init__(fig)
 
 class MainGuiWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        # Setting up Arduino
-        if 'linux' in sys.platform:
-            target_port = ''
-            for port in serial.tools.list_ports.comports():
-                if 'ttyACM' in port.description:
-                    target_port = port.description
-                    break
-            self.arduino = serial.Serial(port='/dev/{}'.format(target_port.description), baudrate=38400, timeout=.1)
-        elif 'win' in sys.platform:
-            target_port = ''
-            for port in serial.tools.list_ports.comports():
-                if 'Arduino Uno' in port.description:
-                    target_port = port.name
-            self.arduino = serial.Serial(port=target_port, baudrate=38400, timeout=.1)
-
         # Setting up Qt
         title = 'Трибометр'
 
@@ -96,11 +79,18 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         # Setup
         self.interval = 90
         self.phase = 0
-        self.intervals = [0, 0] # For zoom in and out
+        self.xlimit = self.timer_duration
+        self.ylimit = 500
+        self.xintervals = [0, self.xlimit]
+        self.yintervals = [0, self.ylimit]
+
         self.tenzo_max = 0
         self.running = False
 
-        # Connecting Buttons
+        self.ui.spinBoxY.setMaximum(500)
+        self.ui.spinBoxY.setValue(int(self.ylimit))
+
+        # Connecting
         self.startButton.clicked.connect(self.start_timer)
         # self.saveButton.clicked.connect(self.open_save_menu)
         self.calibrate_button.clicked.connect(self.reset_arduino)
@@ -111,14 +101,60 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.action_save_image.triggered.connect(self.save_plot)
         self.ui.action_save_excel.triggered.connect(self.save_excel)
 
+        self.ui.spinBoxX.valueChanged.connect(self.change_graph_limits)
+        self.ui.spinBoxY.valueChanged.connect(self.change_graph_limits)
+
+        # self.ui.moveLeft.clicked.connect(self.moveGraphLeft)
+        self.ui.moveRight.clicked.connect(self.moveGraphRight)
+        # self.ui.moveTop.clicked.connect(self.moveGraphTop)
+        # self.ui.moveBot.clicked.connect(self.moveGraphBot)
+
         self.timerInput.setPlaceholderText("")
         # self.zoomIn.clicked.connect(self.zoom_in)
         # self.zoomOut.clicked.connect(self.zoom_out)
         # self.moveLeft.clicked.connect(self.move_left)
         # self.moveRight.clicked.connect(self.move_right)
 
-        # Resetting Arduino
-        self.reset_arduino()
+        # Setting up Arduino
+        self.is_arduino_connected = False
+
+        self.arduino_check_timer = QtCore.QTimer()
+        self.arduino_check_timer.setInterval(400) #msec
+        self.arduino_check_timer.timeout.connect(self.check_is_arduino_connected)
+        self.arduino_check_timer.start()
+
+    def connect_arduino(self):
+        if 'linux' in sys.platform:
+            target_port = ''
+            for port in serial.tools.list_ports.comports():
+                if 'ttyACM' in port.description:
+                    target_port = port.description
+                    break
+            self.arduino = serial.Serial(port='/dev/{}'.format(target_port.description), baudrate=38400, timeout=.1)
+        elif 'win' in sys.platform:
+            target_port = ''
+            for port in serial.tools.list_ports.comports():
+                if 'Arduino Uno' in port.description:
+                    target_port = port.name
+            self.arduino = serial.Serial(port=target_port, baudrate=38400, timeout=.1)
+
+    def check_is_arduino_connected(self):
+        try:
+            self.connect_arduino()
+            self.is_arduino_connected = True
+            self.reset_arduino()
+        except:
+            try:
+                self.arduino.write(b' ') # Check is open
+            except:
+                self.is_arduino_connected = False
+
+        if self.is_arduino_connected:
+            self.startButton.setEnabled(True)
+            self.ui.label.setText("Подключено")
+        else:
+            self.startButton.setEnabled(False)
+            self.ui.label.setText("Не подключено")
 
     def turn_on_without_timer(self):
         self.ui.timerInput.setEnabled(False)
@@ -153,6 +189,9 @@ class MainGuiWindow(QtWidgets.QMainWindow):
             self.timer_duration = input_timer * 60
         else:
             self.timer_duration = input_timer
+        self.xlimit = self.timer_duration
+        self.ui.spinBoxX.setValue(int(self.xlimit))
+        self.xintervals[1] = self.xlimit
 
     # Timers
     def start_timer(self):
@@ -170,9 +209,10 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
         if self.ui.with_timer_button.isChecked():
             self.set_xticks()
+            self.ui.spinBoxX.setMaximum(int(self.timer_duration))
         else:
             pass
-
+            
         # Initialize graph with zeros
         self.plotData = np.append(self.plotData, [0], axis=0)
         self.plotTimeData = np.append(self.plotTimeData, [0], axis=0)
@@ -215,10 +255,9 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.tenzo_max = 0
         
     def set_xticks(self):
-        self.canvas.axes.set_xlim(xmin=0, xmax=self.timer_duration + 1)
+        self.canvas.axes.set_xlim(xmin=self.xintervals[0], xmax=self.xintervals[1] + 1)
         ticker_obj = ticker.MaxNLocator('auto', integer=True)
-        self.canvas.axes.set_xticks(ticker_obj.tick_values(0, self.timer_duration))
-        self.intervals = [0, self.timer_duration + 1]
+        self.canvas.axes.set_xticks(ticker_obj.tick_values(self.xintervals[0], self.xintervals[1]))
     
     def reset_graph(self):
         self.plotData = np.array([])
@@ -226,7 +265,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.canvas.axes.clear()
 
         self.canvas.axes.grid()
-        self.canvas.axes.set_ylim(ymin=0, ymax=ylim)
+        self.canvas.axes.set_ylim(ymin=0, ymax=self.ylimit)
         self.canvas.axes.set_ylabel('Вес на датчик, г')
         self.canvas.axes.set_xlabel('Время, с')
 
@@ -252,7 +291,6 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         while 'first:' not in result:
             unprocessed_result = self.arduino.readline().decode('utf-8')
             result = unprocessed_result.replace('\n', '').replace('\r', '')
-            print(result)
 
     # Updates timerInput
     def update_timer_input(self):
@@ -286,10 +324,9 @@ class MainGuiWindow(QtWidgets.QMainWindow):
                 self.ui.tableWidget.setItem(0, 1, QTableWidgetItem(str(queue_result[0]) + ' г'))
         except Exception:
             pass
-            
-        # print(self.plotData)
-        # print(self.plotTimeData)
-        # print('-----\n')
+
+        self.set_xticks()
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
 
         plot_refs = self.canvas.axes.plot(self.plotTimeData, self.plotData, color=(0,0,0), linewidth=0.8)
         self.reference_plot = plot_refs[0]				
@@ -355,6 +392,38 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.m1.setText(str(m1))
         self.ui.ktr.setText(str(ktr))
 
+    def change_graph_limits(self):
+        self.xlimit = self.ui.spinBoxX.value()
+        self.ylimit = self.ui.spinBoxY.value()
+        self.xintervals = [0, self.xlimit]
+        self.yintervals = [0, self.ylimit]
+
+        self.canvas.draw()
+        self.set_xticks()
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+
+    def moveGraphLeft(self):
+        self.xintervals[0] -= 10
+        self.xintervals[1] -= 10
+        
+        self.set_xticks()
+
+    def moveGraphRight(self):
+        self.xintervals[0] += 10
+        self.xintervals[1] += 10
+        
+        self.set_xticks()
+
+    def moveGraphTop(self):
+        self.yintervals[0] += 10
+        self.yintervals[1] += 10
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+
+    def moveGraphBot(self):
+        self.yintervals[0] -= 10
+        self.yintervals[1] -= 10
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+
 class StopDialog(QtWidgets.QDialog):
     def __init__(self, accept, reject):
         super().__init__()
@@ -383,29 +452,6 @@ class Worker(QtCore.QRunnable):
 	@pyqtSlot()
 	def run(self):
 		self.function(*self.args, **self.kwargs)
-
-class GraphManipulation():
-    def __init__(self, intervals, max_value):
-        self.intervals = intervals
-        self.max = max_value
-        self.coef = 1
-
-    def interval_check(self):
-        if self.intervals == [0, 0]:
-            return
-        temp = (len(str(self.max)) - 1) * 5
-
-    def zoom_in(self):
-        self.interval_check()
-
-    def zoom_out(self):
-        self.interval_check()
-
-    def move_left(self):
-        self.interval_check()
-
-    def move_right(self):
-        self.interval_check()
 
 # Main
 if __name__ == "__main__":

@@ -47,7 +47,7 @@
           <attribute name="title">
            <string>Показатель тензодатчика (г)</string>
           </attribute>
-          <widget class="QWidget" name="">
+          <widget class="QWidget" name="layoutWidget">
            <property name="geometry">
             <rect>
              <x>0</x>
@@ -105,42 +105,48 @@
                </spacer>
               </item>
               <item>
-               <widget class="QPushButton" name="moveRight_2">
+               <widget class="QSpinBox" name="spinBoxX"/>
+              </item>
+              <item>
+               <widget class="QSpinBox" name="spinBoxY"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="moveLeft">
                 <property name="layoutDirection">
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>&gt;</string>
+                 <string>←</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="moveLeft_2">
+               <widget class="QPushButton" name="moveRight">
                 <property name="layoutDirection">
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>&lt;</string>
+                 <string>→</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="zoomIn_2">
+               <widget class="QPushButton" name="moveTop">
                 <property name="layoutDirection">
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>+</string>
+                 <string>↑</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="zoomOut_2">
+               <widget class="QPushButton" name="moveBot">
                 <property name="layoutDirection">
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>-</string>
+                 <string>↓</string>
                 </property>
                </widget>
               </item>
@@ -166,7 +172,7 @@
           <attribute name="title">
            <string>Результаты</string>
           </attribute>
-          <widget class="QWidget" name="">
+          <widget class="QWidget" name="layoutWidget">
            <property name="geometry">
             <rect>
              <x>10</x>
@@ -342,6 +348,12 @@
           <layout class="QVBoxLayout" name="verticalLayout_4">
            <item>
             <widget class="QPushButton" name="startButton">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
              <property name="text">
               <string>Начать испытание</string>
              </property>
@@ -447,17 +459,42 @@
           </spacer>
          </item>
          <item>
-          <spacer name="horizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
+          <layout class="QVBoxLayout" name="verticalLayout_11">
+           <item>
+            <widget class="QLabel" name="label_6">
+             <property name="font">
+              <font>
+               <pointsize>9</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Arduino:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="font">
+              <font>
+               <pointsize>9</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Подключено</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignHCenter|Qt::AlignTop</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
          <item>
           <widget class="QLabel" name="loading_gif_label">
