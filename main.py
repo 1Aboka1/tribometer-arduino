@@ -104,10 +104,12 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.spinBoxX.valueChanged.connect(self.change_graph_limits)
         self.ui.spinBoxY.valueChanged.connect(self.change_graph_limits)
 
-        # self.ui.moveLeft.clicked.connect(self.moveGraphLeft)
+        self.ui.moveLeft.clicked.connect(self.moveGraphLeft)
         self.ui.moveRight.clicked.connect(self.moveGraphRight)
-        # self.ui.moveTop.clicked.connect(self.moveGraphTop)
-        # self.ui.moveBot.clicked.connect(self.moveGraphBot)
+        self.ui.moveTop.clicked.connect(self.moveGraphTop)
+        self.ui.moveBot.clicked.connect(self.moveGraphBot)
+
+        self.ui.resetButton.clicked.connect(self.resetIntervalsAndZoom)
 
         self.timerInput.setPlaceholderText("")
         # self.zoomIn.clicked.connect(self.zoom_in)
@@ -151,9 +153,11 @@ class MainGuiWindow(QtWidgets.QMainWindow):
 
         if self.is_arduino_connected:
             self.startButton.setEnabled(True)
+            self.calibrate_button.setEnabled(True)
             self.ui.label.setText("Подключено")
         else:
             self.startButton.setEnabled(False)
+            self.calibrate_button.setEnabled(False)
             self.ui.label.setText("Не подключено")
 
     def turn_on_without_timer(self):
@@ -176,6 +180,13 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.no_timer_button.setEnabled(False)
         self.startButton.clicked.disconnect()
         self.startButton.clicked.connect(self.stop_dialog)
+        self.resetButton.setEnabled(False)
+        self.moveLeft.setEnabled(False)
+        self.moveRight.setEnabled(False)
+        self.moveTop.setEnabled(False)
+        self.moveBot.setEnabled(False)
+        self.spinBoxX.setEnabled(False)
+        self.spinBoxY.setEnabled(False)
 
     def timer_duration_calculation(self):
         try:
@@ -252,6 +263,14 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.ui.radioButton.setChecked(True)
         self.ui.with_timer_button.setChecked(True)
 
+        self.resetButton.setEnabled(True)
+        self.moveLeft.setEnabled(True)
+        self.moveRight.setEnabled(True)
+        self.moveTop.setEnabled(True)
+        self.moveBot.setEnabled(True)
+        self.spinBoxX.setEnabled(True)
+        self.spinBoxY.setEnabled(True)
+
         self.tenzo_max = 0
         
     def set_xticks(self):
@@ -314,8 +333,6 @@ class MainGuiWindow(QtWidgets.QMainWindow):
             queue_result = self.q.get_nowait()
             self.plotData = np.append(self.plotData, queue_result, axis=0)
             self.plotTimeData = np.append(self.plotTimeData, [time_stamp], axis=0)
-            # print(time_stamp)
-            # print(queue_result)
 
             # Setting to table
             self.ui.tableWidget.setItem(0, 0, QTableWidgetItem(str(queue_result[0]) + ' г'))
@@ -398,31 +415,58 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.xintervals = [0, self.xlimit]
         self.yintervals = [0, self.ylimit]
 
-        self.canvas.draw()
         self.set_xticks()
         self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
 
     def moveGraphLeft(self):
-        self.xintervals[0] -= 10
-        self.xintervals[1] -= 10
+        coef = self.xlimit * 0.1
+
+        self.xintervals[0] -= coef
+        self.xintervals[1] -= coef
         
         self.set_xticks()
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
 
     def moveGraphRight(self):
-        self.xintervals[0] += 10
-        self.xintervals[1] += 10
+        coef = self.xlimit * 0.1
+
+        self.xintervals[0] += coef
+        self.xintervals[1] += coef
         
         self.set_xticks()
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
 
     def moveGraphTop(self):
         self.yintervals[0] += 10
         self.yintervals[1] += 10
+        
+        self.set_xticks()
         self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
 
     def moveGraphBot(self):
         self.yintervals[0] -= 10
         self.yintervals[1] -= 10
+        
+        self.set_xticks()
         self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
+
+    def resetIntervalsAndZoom(self):
+        self.xlimit = self.timer_duration
+        self.ylimit = 500
+        self.xintervals = [0, self.timer_duration]
+        self.yintervals = [0, 500]
+
+        self.spinBoxX.setValue(int(self.timer_duration))
+        self.spinBoxY.setValue(500)
+
+        self.set_xticks()
+        self.canvas.axes.set_ylim(ymin=self.yintervals[0], ymax=self.yintervals[1])
+        self.canvas.draw()
 
 class StopDialog(QtWidgets.QDialog):
     def __init__(self, accept, reject):
