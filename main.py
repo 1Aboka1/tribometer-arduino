@@ -87,7 +87,7 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         self.tenzo_max = 0
         self.running = False
 
-        self.ui.spinBoxY.setMaximum(500)
+        self.ui.spinBoxY.setMaximum(5000)
         self.ui.spinBoxY.setValue(int(self.ylimit))
 
         # Connecting
