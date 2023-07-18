@@ -355,17 +355,15 @@ class MainGuiWindow(QtWidgets.QMainWindow):
             reading = ''
             # SKips first line of text
             while reading := self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '') != 'first:':
-                # print(reading)
                 pass
             # Reads each line erasing \n and \r until a value with length not 0 is met
             while len(reading := self.arduino.readline().decode('utf-8').replace('\n', '').replace('\r', '')) == 0:
-                # print(reading)
                 pass
             try:
                 self.q.put([float(reading)*10])
             except:
-                print('Error reading serial')
-
+                pass
+            
     # Non blocking functions
     def start_worker(self):
         worker = Worker(self.start_stream)
