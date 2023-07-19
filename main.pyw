@@ -41,30 +41,31 @@ class MainGuiWindow(QtWidgets.QMainWindow):
         title = 'Трибометр'
 
         QtWidgets.QMainWindow.__init__(self)
+        self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.ui = uic.loadUi('design.ui', self)
         self.threadpool = QtCore.QThreadPool()
         self.setWindowTitle(title)
 
-        self.canvas_width = 12
-        self.canvas_height = 8
+        self.canvas_width = 10
+        self.canvas_height = 6
         self.canvas_dpi = 100
 
         # Setting up graph
-        self.canvas = MplCanvas(self, width=12, height=8, dpi=100)
+        self.canvas = MplCanvas(self, width=self.canvas_width, height=self.canvas_height, dpi=self.canvas_dpi)
         self.ui.verticalLayout.addWidget(self.canvas)
         self.reference_plot = None
         self.ui.radioButton.setChecked(True)
         self.ui.with_timer_button.setChecked(True)
 
         # Setting up table
-        row_count = 2
+        row_count = 1
         column_count = 2
 
         self.ui.tableWidget.setRowCount(row_count)
         self.ui.tableWidget.setColumnCount(column_count)
 
         self.ui.tableWidget.setHorizontalHeaderLabels(['Текущее значение', 'Максимум'])
-        self.ui.tableWidget.setVerticalHeaderLabels(['Тензодатчик', 'Unknown'])
+        self.ui.tableWidget.setVerticalHeaderLabels(['Тензодатчик'])
 
         for i in range(row_count):
             for j in range(column_count):

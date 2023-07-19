@@ -5,7 +5,7 @@ base = None
 if (sys.platform == "win32"):
     base = "Win32GUI"    
 
-executables = [Executable("main.pyw", base=base)]
+executables = [Executable("main.pyw", base=base, target_name="Трибометр", icon="icon.ico")]
 
 packages = ["idna"]
 options = {
